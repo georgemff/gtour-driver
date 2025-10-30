@@ -1,5 +1,4 @@
 import {createContext, useEffect, useState} from "react";
-import axios from "axios";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {Text, View} from "react-native";
 import http from "@/services/axios";

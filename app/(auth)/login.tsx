@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button, Keyboard, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from "react-native";
 import { useUser } from '@/hooks/use-user';
-import {Snackbar} from "react-native-paper";
 import Snack from "@/components/snack";
 
 export default function LoginScreen() {
@@ -28,7 +27,7 @@ export default function LoginScreen() {
                     setDisableButton(false);
                 }
             })
-            .catch((error: Error) => {
+            .catch((_error: Error) => {
                 setDisableButton(false);
             })
     }
