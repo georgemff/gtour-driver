@@ -45,8 +45,8 @@ export default function UserProvider({children}) {
        try {
            const axiosResponse = await http.post(`/auth/login-driver`, {email: userName, password});
            if(axiosResponse.data?.data) {
-               await AsyncStorage.setItem("jwt_token", res.data.data.access_token);
-               setUser(res.data.data);
+               await AsyncStorage.setItem("jwt_token", axiosResponse.data.data.access_token);
+               setUser(axiosResponse.data.data);
                setIsAuth(true);
 
            }

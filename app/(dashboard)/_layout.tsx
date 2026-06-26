@@ -29,6 +29,13 @@ export default function DashboardLayout() {
             }}
         />
         <Tabs.Screen
+            name="availability"
+            options={{
+                title: 'კალენდარი',
+                tabBarIcon: ({ color }) => <Ionicons size={20} name="calendar-sharp" color={color} />,
+            }}
+        />
+        <Tabs.Screen
             name="profile"
             options={{
                 title: 'პროფილი',
