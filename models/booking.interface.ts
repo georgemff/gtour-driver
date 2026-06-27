@@ -10,7 +10,9 @@ export interface DriverBooking {
   dropoffDate: string;
   pickupTime: string;
   car: string;
-  price: number;
   status: DriverBookingStatus;
+  statusLabel?: string;
+  persons?: number;
+  pets?: boolean;
   notes?: string;
 }

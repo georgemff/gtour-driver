@@ -1,86 +1,102 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { DriverBooking } from '@/models/booking.interface';
+import http from '@/services/axios';
 
-const UNAVAILABLE_DATES_KEY = 'driver_unavailable_dates';
+interface ApiResponse<T> {
+  data: T;
+}
 
-export const mockDriverBookings: DriverBooking[] = [
-  {
-    id: 1,
-    publicId: 'MZ-1048',
-    travelerName: 'Nino K.',
-    from: 'Tbilisi Airport',
-    to: 'Gudauri',
-    pickupDate: '2026-07-03',
-    dropoffDate: '2026-07-03',
-    pickupTime: '10:30',
-    car: 'Toyota Sienna',
-    price: 120,
-    status: 'active',
-    notes: 'Flight lands at 09:45. Meet at arrivals.',
-  },
-  {
-    id: 2,
-    publicId: 'MZ-1051',
-    travelerName: 'David L.',
-    from: 'Tbilisi',
-    to: 'Kazbegi',
-    pickupDate: '2026-07-06',
-    dropoffDate: '2026-07-07',
-    pickupTime: '08:00',
-    car: 'Hyundai Elantra',
-    price: 210,
-    status: 'active',
-  },
-  {
-    id: 3,
-    publicId: 'MZ-0977',
-    travelerName: 'Ana M.',
-    from: 'Batumi',
-    to: 'Kutaisi Airport',
-    pickupDate: '2026-06-14',
-    dropoffDate: '2026-06-14',
-    pickupTime: '13:15',
-    car: 'Kia Optima',
-    price: 95,
-    status: 'completed',
-  },
-  {
-    id: 4,
-    publicId: 'MZ-0923',
-    travelerName: 'Mark T.',
-    from: 'Tbilisi',
-    to: 'Borjomi',
-    pickupDate: '2026-05-28',
-    dropoffDate: '2026-05-28',
-    pickupTime: '11:00',
-    car: 'Toyota Sienna',
-    price: 140,
-    status: 'completed',
-  },
-];
+export interface DriverAvailabilityBlock {
+  id: number;
+  startDate: string;
+  endDate: string;
+  reason: string | null;
+}
 
-export async function getDriverBookings(): Promise<DriverBooking[]> {
-  return mockDriverBookings;
+export interface DriverAvailability {
+  dates: string[];
+  blocks: DriverAvailabilityBlock[];
+}
+
+export async function getActiveDriverBookings(): Promise<DriverBooking[]> {
+  const response = await http.get<ApiResponse<DriverBooking[]>>('/bookings/active');
+  return Array.isArray(response.data.data) ? response.data.data : [];
+}
+
+export async function getDriverBooking(bookingId: number): Promise<DriverBooking | null> {
+  const response = await http.get<ApiResponse<DriverBooking>>(`/bookings/${bookingId}`);
+  return response.data.data || null;
+}
+
+export async function respondToDriverBooking(
+  bookingId: number,
+  accepted: boolean,
+): Promise<{ status: number; statusLabel: string }> {
+  const response = await http.post<ApiResponse<{ status: number; statusLabel: string }>>(
+    `/bookings/${bookingId}/respond`,
+    { accepted },
+  );
+  return response.data.data;
+}
+
+export async function getPassedDriverBookings(): Promise<DriverBooking[]> {
+  const response = await http.get<ApiResponse<DriverBooking[]>>('/bookings/passed');
+  return Array.isArray(response.data.data) ? response.data.data : [];
 }
 
 export async function getUnavailableDates(): Promise<string[]> {
-  const storedDates = await AsyncStorage.getItem(UNAVAILABLE_DATES_KEY);
+  const availability = await getDriverAvailability();
+  return availability.dates;
+}
 
-  if (!storedDates) {
-    return [];
-  }
-
-  try {
-    const parsedDates = JSON.parse(storedDates);
-    return Array.isArray(parsedDates) ? parsedDates : [];
-  } catch (_error) {
-    return [];
-  }
+export async function getDriverAvailability(): Promise<DriverAvailability> {
+  const response = await http.get<ApiResponse<DriverAvailability>>('/availability');
+  return normalizeAvailability(response.data.data);
 }
 
 export async function saveUnavailableDates(dates: string[]): Promise<string[]> {
-  const normalizedDates = Array.from(new Set(dates)).sort();
-  await AsyncStorage.setItem(UNAVAILABLE_DATES_KEY, JSON.stringify(normalizedDates));
-  return normalizedDates;
+  const availability = await saveDriverAvailability(dates);
+  return availability.dates;
+}
+
+export async function saveDriverAvailability(dates: string[]): Promise<DriverAvailability> {
+  const response = await http.put<ApiResponse<DriverAvailability>>('/availability', {
+    dates,
+  });
+  return normalizeAvailability(response.data.data);
+}
+
+export async function cancelDriverVacation(vacationId: number): Promise<DriverAvailability> {
+  const response = await http.delete<ApiResponse<DriverAvailability>>(
+    `/availability/${vacationId}`,
+  );
+  return normalizeAvailability(response.data.data);
+}
+
+export async function finishDriverVacation(vacationId: number): Promise<DriverAvailability> {
+  const response = await http.patch<ApiResponse<DriverAvailability>>(
+    `/availability/${vacationId}/finish`,
+  );
+  return normalizeAvailability(response.data.data);
+}
+
+export async function registerDriverPushToken(token: string, platform: string): Promise<void> {
+  await http.post('/notifications/push-token', {
+    token,
+    platform,
+  });
+}
+
+export async function unregisterDriverPushToken(token: string): Promise<void> {
+  await http.delete('/notifications/push-token', {
+    data: {
+      token,
+    },
+  });
+}
+
+function normalizeAvailability(availability?: DriverAvailability): DriverAvailability {
+  return {
+    dates: Array.isArray(availability?.dates) ? availability.dates : [],
+    blocks: Array.isArray(availability?.blocks) ? availability.blocks : [],
+  };
 }

@@ -1,22 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DriverBooking } from '@/models/booking.interface';
-import { getDriverBookings } from '@/services/driver-app';
-
-const moneyFormatter = new Intl.NumberFormat('en-US', {
-  currency: 'USD',
-  style: 'currency',
-});
+import { getActiveDriverBookings } from '@/services/driver-app';
+import { router } from 'expo-router';
 
 const dateFormatter = new Intl.DateTimeFormat('ka-GE', {
   day: 'numeric',
@@ -27,15 +24,16 @@ export default function HomeScreen() {
   const [bookings, setBookings] = useState<DriverBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const activeBookings = useMemo(
-    () => bookings.filter((booking) => booking.status === 'active'),
-    [bookings],
-  );
+  const [errorMessage, setErrorMessage] = useState('');
 
   const loadBookings = useCallback(async () => {
-    const result = await getDriverBookings();
-    setBookings(result);
+    try {
+      setErrorMessage('');
+      const result = await getActiveDriverBookings();
+      setBookings(result);
+    } catch {
+      setErrorMessage('აქტიური შეკვეთების ჩატვირთვა ვერ მოხერხდა.');
+    }
   }, []);
 
   useEffect(() => {
@@ -44,11 +42,12 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadBookings();
-    setRefreshing(false);
+    try {
+      await loadBookings();
+    } finally {
+      setRefreshing(false);
+    }
   };
-
-  const totalUpcoming = activeBookings.reduce((sum, booking) => sum + booking.price, 0);
 
   return (
     <SafeAreaView style={styles.safeAreaContainer}>
@@ -61,22 +60,23 @@ export default function HomeScreen() {
             <Text style={styles.eyebrow}>დღევანდელი სამუშაო</Text>
             <Text style={styles.title}>აქტიური შეკვეთები</Text>
           </View>
-          <View style={styles.counter}>
-            <Text style={styles.counterValue}>{activeBookings.length}</Text>
-            <Text style={styles.counterLabel}>აქტიური</Text>
-          </View>
         </View>
 
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
             <Ionicons name="calendar-clear-outline" size={20} color="#1f3b73" />
-            <Text style={styles.summaryValue}>{activeBookings.length}</Text>
+            <Text style={styles.summaryValue}>{bookings.length}</Text>
             <Text style={styles.summaryLabel}>მომავალი რეისი</Text>
           </View>
           <View style={styles.summaryCard}>
-            <Ionicons name="wallet-outline" size={20} color="#1f3b73" />
-            <Text style={styles.summaryValue}>{moneyFormatter.format(totalUpcoming)}</Text>
-            <Text style={styles.summaryLabel}>ჯამური თანხა</Text>
+            <Ionicons name="time-outline" size={20} color="#1f3b73" />
+            <Text style={{
+              ...styles.summaryValue,
+              fontSize: 14
+            }}>
+              {bookings?.length ? `${bookings[0]?.pickupDate} | ${bookings[0]?.pickupTime}` : '--:--'}
+            </Text>
+            <Text style={styles.summaryLabel}>შემდეგი დრო</Text>
           </View>
         </View>
 
@@ -84,9 +84,11 @@ export default function HomeScreen() {
           <View style={styles.stateContainer}>
             <ActivityIndicator color="#1f3b73" />
           </View>
-        ) : activeBookings.length ? (
+        ) : errorMessage ? (
+          <ErrorState message={errorMessage} onRetry={loadBookings} />
+        ) : bookings.length ? (
           <View style={styles.list}>
-            {activeBookings.map((booking) => (
+            {bookings.map((booking) => (
               <BookingCard key={booking.id} booking={booking} />
             ))}
           </View>
@@ -102,9 +104,27 @@ export default function HomeScreen() {
   );
 }
 
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <View style={styles.errorState}>
+      <Ionicons name="cloud-offline-outline" size={42} color="#b42318" />
+      <Text style={styles.errorTitle}>მონაცემები ვერ ჩაიტვირთა</Text>
+      <Text style={styles.errorText}>{message}</Text>
+      <TouchableOpacity accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
+        <Ionicons name="refresh-outline" size={17} color="#ffffff" />
+        <Text style={styles.retryButtonText}>თავიდან ცდა</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function BookingCard({ booking }: { booking: DriverBooking }) {
   return (
-    <View style={styles.bookingCard}>
+    <TouchableOpacity
+      activeOpacity={0.86}
+      accessibilityRole="button"
+      onPress={() => router.push(`/booking/${booking.id}` as never)}
+      style={styles.bookingCard}>
       <View style={styles.cardHeader}>
         <View>
           <Text style={styles.bookingId}>{booking.publicId}</Text>
@@ -125,11 +145,10 @@ function BookingCard({ booking }: { booking: DriverBooking }) {
       <View style={styles.metaRow}>
         <Meta icon="time-outline" value={`${dateFormatter.format(new Date(booking.pickupDate))}, ${booking.pickupTime}`} />
         <Meta icon="car-sport-outline" value={booking.car} />
-        <Meta icon="cash-outline" value={moneyFormatter.format(booking.price)} />
       </View>
 
       {booking.notes ? <Text style={styles.notes}>{booking.notes}</Text> : null}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -358,5 +377,42 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 14,
     marginTop: 6,
+  },
+  errorState: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#ffd7d7',
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+  },
+  errorTitle: {
+    color: '#101828',
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 12,
+  },
+  errorText: {
+    color: '#64748b',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  retryButton: {
+    alignItems: 'center',
+    backgroundColor: '#1f3b73',
+    borderRadius: 14,
+    flexDirection: 'row',
+    gap: 7,
+    marginTop: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

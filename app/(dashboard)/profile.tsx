@@ -1,18 +1,34 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUser } from '@/hooks/use-user';
 
 export default function ProfileScreen() {
   const { logout, user } = useUser();
+  const [imageFailed, setImageFailed] = useState(false);
 
   const initials = useMemo(() => {
     const firstName = user?.firstName?.[0] ?? '';
     const lastName = user?.lastName?.[0] ?? '';
     return `${firstName}${lastName}`.toUpperCase() || 'DR';
   }, [user]);
+
+  const profilePictureUrl = user?.profilePictureUrl || user?.profilePicture;
+  const showProfilePicture = Boolean(profilePictureUrl && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [profilePictureUrl]);
 
   const onLogout = () => {
     Alert.alert('Warning', 'ნამდვილად გსურს სისტემიდან გასვლა?', [
@@ -40,7 +56,15 @@ export default function ProfileScreen() {
 
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+            {showProfilePicture ? (
+              <Image
+                source={{ uri: profilePictureUrl }}
+                onError={() => setImageFailed(true)}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
           </View>
           <Text style={styles.name}>
             {user?.firstName} {user?.lastName}
@@ -122,7 +146,12 @@ const styles = StyleSheet.create({
     height: 64,
     justifyContent: 'center',
     marginBottom: 14,
+    overflow: 'hidden',
     width: 64,
+  },
+  avatarImage: {
+    height: '100%',
+    width: '100%',
   },
   avatarText: {
     color: '#1f3b73',

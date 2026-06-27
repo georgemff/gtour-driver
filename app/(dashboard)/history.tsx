@@ -1,22 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DriverBooking } from '@/models/booking.interface';
-import { getDriverBookings } from '@/services/driver-app';
-
-const moneyFormatter = new Intl.NumberFormat('en-US', {
-  currency: 'USD',
-  style: 'currency',
-});
+import { getPassedDriverBookings } from '@/services/driver-app';
 
 const longDateFormatter = new Intl.DateTimeFormat('ka-GE', {
   day: 'numeric',
@@ -28,15 +24,16 @@ export default function HistoryScreen() {
   const [bookings, setBookings] = useState<DriverBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const finishedBookings = useMemo(
-    () => bookings.filter((booking) => booking.status === 'completed'),
-    [bookings],
-  );
+  const [errorMessage, setErrorMessage] = useState('');
 
   const loadBookings = useCallback(async () => {
-    const result = await getDriverBookings();
-    setBookings(result);
+    try {
+      setErrorMessage('');
+      const result = await getPassedDriverBookings();
+      setBookings(result);
+    } catch {
+      setErrorMessage('ისტორიის ჩატვირთვა ვერ მოხერხდა.');
+    }
   }, []);
 
   useEffect(() => {
@@ -45,11 +42,12 @@ export default function HistoryScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadBookings();
-    setRefreshing(false);
+    try {
+      await loadBookings();
+    } finally {
+      setRefreshing(false);
+    }
   };
-
-  const totalEarned = finishedBookings.reduce((sum, booking) => sum + booking.price, 0);
 
   return (
     <SafeAreaView style={styles.safeAreaContainer}>
@@ -67,12 +65,16 @@ export default function HistoryScreen() {
             <Ionicons name="checkmark-done-outline" size={22} color="#1f3b73" />
           </View>
           <View style={styles.overviewContent}>
-            <Text style={styles.overviewValue}>{finishedBookings.length}</Text>
+            <Text style={styles.overviewValue}>{bookings.length}</Text>
             <Text style={styles.overviewLabel}>დასრულებული შეკვეთა</Text>
           </View>
           <View style={styles.overviewContent}>
-            <Text style={styles.overviewValue}>{moneyFormatter.format(totalEarned)}</Text>
-            <Text style={styles.overviewLabel}>შემოსავალი</Text>
+            <Text style={styles.overviewValue}>
+              {bookings[0]?.pickupDate
+                ? longDateFormatter.format(new Date(bookings[0].pickupDate))
+                : '-'}
+            </Text>
+            <Text style={styles.overviewLabel}>ბოლო რეისი</Text>
           </View>
         </View>
 
@@ -80,9 +82,11 @@ export default function HistoryScreen() {
           <View style={styles.stateContainer}>
             <ActivityIndicator color="#1f3b73" />
           </View>
-        ) : finishedBookings.length ? (
+        ) : errorMessage ? (
+          <ErrorState message={errorMessage} onRetry={loadBookings} />
+        ) : bookings.length ? (
           <View style={styles.timeline}>
-            {finishedBookings.map((booking) => (
+            {bookings.map((booking) => (
               <HistoryCard key={booking.id} booking={booking} />
             ))}
           </View>
@@ -98,6 +102,20 @@ export default function HistoryScreen() {
   );
 }
 
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <View style={styles.errorState}>
+      <Ionicons name="cloud-offline-outline" size={42} color="#b42318" />
+      <Text style={styles.errorTitle}>მონაცემები ვერ ჩაიტვირთა</Text>
+      <Text style={styles.errorText}>{message}</Text>
+      <TouchableOpacity accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
+        <Ionicons name="refresh-outline" size={17} color="#ffffff" />
+        <Text style={styles.retryButtonText}>თავიდან ცდა</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function HistoryCard({ booking }: { booking: DriverBooking }) {
   return (
     <View style={styles.historyCard}>
@@ -108,7 +126,6 @@ function HistoryCard({ booking }: { booking: DriverBooking }) {
             {booking.from} → {booking.to}
           </Text>
         </View>
-        <Text style={styles.price}>{moneyFormatter.format(booking.price)}</Text>
       </View>
 
       <View style={styles.infoRow}>
@@ -221,11 +238,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 22,
   },
-  price: {
-    color: '#16a34a',
-    fontSize: 16,
-    fontWeight: '800',
-  },
   infoRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -265,5 +277,42 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 14,
     marginTop: 6,
+  },
+  errorState: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#ffd7d7',
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+  },
+  errorTitle: {
+    color: '#101828',
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 12,
+  },
+  errorText: {
+    color: '#64748b',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  retryButton: {
+    alignItems: 'center',
+    backgroundColor: '#1f3b73',
+    borderRadius: 14,
+    flexDirection: 'row',
+    gap: 7,
+    marginTop: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
