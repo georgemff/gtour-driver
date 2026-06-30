@@ -15,11 +15,16 @@ export default function UserProvider({children}) {
 
     useEffect(() => {
         const checkStorage = async () => {
+            const token = await AsyncStorage.getItem("jwt_token");
+
+            if (!token) {
+                setLoading(false);
+                return;
+            }
+
             http.get("/profile/driver-info")
                 .then(response => {
                     if (response.data.success) {
-                        console.log(response.data);
-                        setLoading(false)
                         setUser(response.data.data)
                         setIsAuth(true);
                     }
@@ -27,15 +32,14 @@ export default function UserProvider({children}) {
                 })
                 .catch(async err => {
                     console.error(err);
-                    if (err.status === 401) {
+                    if (err.response?.status === 401) {
                         await AsyncStorage.removeItem("jwt_token");
                         setIsAuth(false)
                     }
+                })
+                .finally(() => {
+                    setLoading(false);
                 });
-
-            setTimeout(() => {
-                setLoading(false);
-            }, 1000)
         }
         checkStorage();
     }, [])
@@ -45,16 +49,22 @@ export default function UserProvider({children}) {
        try {
            const axiosResponse = await http.post(`/auth/login-driver`, {email: userName, password});
            if(axiosResponse.data?.data) {
-               await AsyncStorage.setItem("jwt_token", res.data.data.access_token);
-               setUser(res.data.data);
+               await AsyncStorage.setItem("jwt_token", axiosResponse.data.data.access_token);
+               setUser(axiosResponse.data.data);
                setIsAuth(true);
 
            }
            return true;
 
        } catch(error) {
-           if(error.status === 401) {
+           if(error.response?.status === 401) {
                setSnackBarText('არასწორი სახელი ან პაროლი');
+               setShowSnackbar(true);
+           } else if (!error.response) {
+               setSnackBarText('კავშირის პრობლემა. სცადე თავიდან');
+               setShowSnackbar(true);
+           } else {
+               setSnackBarText('შესვლა ვერ მოხერხდა');
                setShowSnackbar(true);
            }
 

@@ -1,9 +1,9 @@
 import { HapticTab } from '@/components/haptic-tab';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from 'expo-router';
 import React from 'react';
-import {Ionicons} from "@expo/vector-icons";
 
 export default function DashboardLayout() {
   const colorScheme = useColorScheme();
@@ -29,10 +29,23 @@ export default function DashboardLayout() {
             }}
         />
         <Tabs.Screen
+            name="availability"
+            options={{
+                title: 'შვებულება',
+                tabBarIcon: ({ color }) => <Ionicons size={20} name="calendar-sharp" color={color} />,
+            }}
+        />
+        <Tabs.Screen
             name="profile"
             options={{
                 title: 'პროფილი',
                 tabBarIcon: ({ color }) => <Ionicons size={20} name="person-sharp" color={color} />,
+            }}
+        />
+        <Tabs.Screen
+            name="booking/[id]"
+            options={{
+                href: null,
             }}
         />
     </Tabs>

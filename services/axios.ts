@@ -1,8 +1,10 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {Alert} from "react-native";
+
 const http = axios.create({
     baseURL: process.env.EXPO_PUBLIC_API_URL,
+    timeout: 15000,
 });
 
 http.interceptors.request.use(async (request) => {
@@ -23,7 +25,7 @@ http.interceptors.response.use((response) => response,
     async (error) => {
         console.log("Response Error", error);
 
-        if(error.request) {
+        if(error.request && !error.response) {
             Alert.alert("კავშირის პრობლემა", error.message ? error.message : "");
         }
         if(error.response && error.response.status === 401) {
