@@ -1,8 +1,14 @@
 import {createContext, useEffect, useState} from "react";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {Text, View} from "react-native";
 import http from "@/services/axios";
 import Snack from "@/components/snack";
+import {
+    clearAuthSession,
+    getStoredAuthToken,
+    getStoredAuthUser,
+    storeAuthSession,
+} from "@/services/auth-storage";
+import {changeDriverPassword} from "@/services/driver-app";
 
 export const UserContext = createContext();
 
@@ -15,25 +21,36 @@ export default function UserProvider({children}) {
 
     useEffect(() => {
         const checkStorage = async () => {
-            const token = await AsyncStorage.getItem("jwt_token");
+            const [token, storedUser] = await Promise.all([
+                getStoredAuthToken(),
+                getStoredAuthUser(),
+            ]);
 
             if (!token) {
                 setLoading(false);
                 return;
             }
 
+            if (storedUser) {
+                setUser(storedUser);
+                setIsAuth(true);
+            }
+
             http.get("/profile/driver-info")
-                .then(response => {
+                .then(async response => {
                     if (response.data.success) {
-                        setUser(response.data.data)
+                        const driver = response.data.data;
+                        setUser(driver)
                         setIsAuth(true);
+                        await storeAuthSession(token, driver);
                     }
 
                 })
                 .catch(async err => {
                     console.error(err);
                     if (err.response?.status === 401) {
-                        await AsyncStorage.removeItem("jwt_token");
+                        await clearAuthSession();
+                        setUser(null);
                         setIsAuth(false)
                     }
                 })
@@ -49,8 +66,10 @@ export default function UserProvider({children}) {
        try {
            const axiosResponse = await http.post(`/auth/login-driver`, {email: userName, password});
            if(axiosResponse.data?.data) {
-               await AsyncStorage.setItem("jwt_token", axiosResponse.data.data.access_token);
-               setUser(axiosResponse.data.data);
+               const {access_token, ...driver} = axiosResponse.data.data;
+
+               await storeAuthSession(access_token, driver);
+               setUser(driver);
                setIsAuth(true);
 
            }
@@ -73,14 +92,28 @@ export default function UserProvider({children}) {
     }
 
     async function logout() {
+        setUser(null);
         setIsAuth(false)
-        await AsyncStorage.removeItem("jwt_token");
+        await clearAuthSession();
 
 
     }
 
+    async function changePassword(currentPassword, newPassword) {
+        const updatedUser = await changeDriverPassword(currentPassword, newPassword);
+        const token = await getStoredAuthToken();
+
+        if (token) {
+            await storeAuthSession(token, updatedUser);
+        }
+
+        setUser(updatedUser);
+
+        return updatedUser;
+    }
+
     return (
-        <UserContext.Provider value={{user, isAuth, login, logout}}>
+        <UserContext.Provider value={{user, isAuth, login, logout, changePassword}}>
             {
                 loading ? (
                     <View style={{

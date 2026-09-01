@@ -94,6 +94,18 @@ export async function unregisterDriverPushToken(token: string): Promise<void> {
   });
 }
 
+export async function changeDriverPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<unknown> {
+  const response = await http.patch<ApiResponse<unknown>>('/profile/change-password', {
+    currentPassword,
+    newPassword,
+  });
+
+  return response.data.data;
+}
+
 function normalizeAvailability(availability?: DriverAvailability): DriverAvailability {
   return {
     dates: Array.isArray(availability?.dates) ? availability.dates : [],

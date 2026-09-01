@@ -1,6 +1,6 @@
 import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {Alert} from "react-native";
+import {getStoredAuthToken} from "@/services/auth-storage";
 
 const http = axios.create({
     baseURL: process.env.EXPO_PUBLIC_API_URL,
@@ -8,7 +8,7 @@ const http = axios.create({
 });
 
 http.interceptors.request.use(async (request) => {
-    const token = await AsyncStorage.getItem("jwt_token");
+    const token = await getStoredAuthToken();
     if (token) {
         request.headers.Authorization = `Bearer ${token}`;
     }
@@ -28,11 +28,6 @@ http.interceptors.response.use((response) => response,
         if(error.request && !error.response) {
             Alert.alert("კავშირის პრობლემა", error.message ? error.message : "");
         }
-        if(error.response && error.response.status === 401) {
-            //TODO: Log out
-            await AsyncStorage.removeItem("jwt_token");
-        }
-
         return Promise.reject(error);
     })
 

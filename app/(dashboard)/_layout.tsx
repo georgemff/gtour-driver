@@ -1,12 +1,24 @@
 import { HapticTab } from '@/components/haptic-tab';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useUser } from '@/hooks/use-user';
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs, usePathname, router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 
 export default function DashboardLayout() {
   const colorScheme = useColorScheme();
+  const { user } = useUser();
+  const pathname = usePathname();
+  const [promptedDriverId, setPromptedDriverId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (user?.isFirstLogin && user?.id !== promptedDriverId && pathname !== '/change-password') {
+      setPromptedDriverId(user.id);
+      router.push('/change-password?required=1' as never);
+    }
+  }, [pathname, promptedDriverId, user?.id, user?.isFirstLogin]);
+
   return (
     <Tabs
       screenOptions={{
@@ -44,6 +56,12 @@ export default function DashboardLayout() {
         />
         <Tabs.Screen
             name="booking/[id]"
+            options={{
+                href: null,
+            }}
+        />
+        <Tabs.Screen
+            name="change-password"
             options={{
                 href: null,
             }}

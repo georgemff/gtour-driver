@@ -3,5 +3,6 @@ export interface LoginResponse {
     email: string;
     firstName: string;
     lastName: string;
+    isFirstLogin: boolean;
     access_token: string;
 }

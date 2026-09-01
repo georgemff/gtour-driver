@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
 import { useUser } from '@/hooks/use-user';
 
@@ -77,6 +78,15 @@ export default function ProfileScreen() {
           <InfoRow icon="mail-outline" label="ელ. ფოსტა" value={user?.email ?? 'არ არის მითითებული'} />
           <InfoRow icon="shield-checkmark-outline" label="სტატუსი" value="აქტიური" />
         </View>
+
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => router.push('/change-password' as never)}
+          style={styles.changePasswordButton}>
+          <Ionicons name="key-outline" size={20} color="#1f3b73" />
+          <Text style={styles.changePasswordText}>პაროლის შეცვლა</Text>
+          <Ionicons name="chevron-forward" size={18} color="#64748b" />
+        </TouchableOpacity>
 
         <TouchableOpacity accessibilityRole="button" onPress={onLogout} style={styles.logoutButton}>
           <Ionicons name="log-out-outline" size={20} color="#b42318" />
@@ -218,6 +228,25 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: 'center',
     minHeight: 52,
+  },
+  changePasswordButton: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#dbe3ef',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    marginBottom: 12,
+    minHeight: 52,
+    paddingHorizontal: 14,
+  },
+  changePasswordText: {
+    color: '#1f3b73',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800',
   },
   logoutText: {
     color: '#b42318',
